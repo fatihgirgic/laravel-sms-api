@@ -1,0 +1,65 @@
+{
+    "name": "fatihgirgic/laravel-sms-api",
+    "description": "Türkiye'deki başlıca SMS sağlayıcıları (Mutlucell, Verimor, Netgsm, VatanSMS, İletimerkezi) için tek arayüzlü, driver tabanlı Laravel SMS paketi.",
+    "keywords": [
+        "laravel",
+        "sms",
+        "turkey",
+        "mutlucell",
+        "verimor",
+        "netgsm",
+        "vatansms",
+        "iletimerkezi"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Fatih GİRGİÇ",
+            "homepage": "https://canopusbilisim.com.tr"
+        },
+        {
+            "name": "Canopus Bilişim",
+            "homepage": "https://canopusbilisim.com.tr"
+        }
+    ],
+    "homepage": "https://github.com/fatihgirgic/laravel-sms-api",
+    "support": {
+        "issues": "https://github.com/fatihgirgic/laravel-sms-api/issues",
+        "source": "https://github.com/fatihgirgic/laravel-sms-api"
+    },
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "guzzlehttp/guzzle": "^7.5"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Canopus\\SmsApi\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Canopus\\SmsApi\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Canopus\\SmsApi\\SmsServiceProvider"
+            ],
+            "aliases": {
+                "Sms": "Canopus\\SmsApi\\Facades\\Sms"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}
