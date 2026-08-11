@@ -14,37 +14,39 @@ class VatanSmsDriverTest extends TestCase
     public function test_it_sends_sms_successfully(): void
     {
         $mock = new MockHandler([
-            new Response(200, [], json_encode(['status' => 200, 'message' => 'OK', 'data' => ['id' => 'abc123']])),
+            new Response(200, [], '4815162'),
         ]);
         $client = new Client(['handler' => HandlerStack::create($mock)]);
 
         $driver = new VatanSmsDriver([
-            'api_id' => 'id',
-            'api_key' => 'key',
+            'account_no' => '12345',
+            'username' => 'user',
+            'password' => 'pass',
             'sender' => 'TEST',
         ], $client);
 
         $response = $driver->send(['905551112233'], 'Merhaba dünya');
 
         $this->assertTrue($response->successful());
-        $this->assertSame('abc123', $response->messageId);
+        $this->assertSame('4815162', $response->messageId);
     }
 
-    public function test_it_reports_failure_from_status_field(): void
+    public function test_it_reports_failure_on_non_numeric_response(): void
     {
         $mock = new MockHandler([
-            new Response(200, [], json_encode(['status' => 'error', 'message' => 'Yetersiz bakiye'])),
+            new Response(200, [], 'HATA: Yetersiz bakiye'),
         ]);
         $client = new Client(['handler' => HandlerStack::create($mock)]);
 
         $driver = new VatanSmsDriver([
-            'api_id' => 'id',
-            'api_key' => 'key',
+            'account_no' => '12345',
+            'username' => 'user',
+            'password' => 'pass',
         ], $client);
 
         $response = $driver->send('905551112233', 'Merhaba');
 
         $this->assertTrue($response->failed());
-        $this->assertSame('Yetersiz bakiye', $response->errorMessage);
+        $this->assertSame('HATA: Yetersiz bakiye', $response->errorMessage);
     }
 }

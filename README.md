@@ -4,11 +4,13 @@ Türkiye'deki başlıca SMS sağlayıcılarını tek, ortak bir arayüz altında
 
 Desteklenen sağlayıcılar:
 
-- **Mutlucell**
-- **Verimor**
-- **Netgsm**
-- **VatanSMS.net**
-- **İletimerkezi**
+| Sağlayıcı | Web sitesi |
+|---|---|
+| Mutlucell | [mutlucell.com.tr](https://mutlucell.com.tr) |
+| Verimor | [verimor.com.tr](https://verimor.com.tr) |
+| Netgsm | [netgsm.com.tr](https://netgsm.com.tr) |
+| VatanSMS.net | [vatansms.net](https://vatansms.net) |
+| İletimerkezi | [iletimerkezi.com](https://iletimerkezi.com) |
 
 Geliştiren: **Fatih GİRGİÇ** — [Canopus Bilişim](https://canopusbilisim.com.tr)
 
@@ -49,10 +51,12 @@ VERIMOR_SOURCE_ADDR=
 NETGSM_USERCODE=
 NETGSM_PASSWORD=
 NETGSM_MSGHEADER=
+NETGSM_ENCODING=TR
 
 # VatanSMS.net
-VATANSMS_API_ID=
-VATANSMS_API_KEY=
+VATANSMS_ACCOUNT_NO=
+VATANSMS_USERNAME=
+VATANSMS_PASSWORD=
 VATANSMS_SENDER=
 
 # İletimerkezi
@@ -124,12 +128,12 @@ Sms::send('905551112233', 'Merhaba!', [
 
 ## Sağlayıcılara özel notlar
 
-Bu paket, her sağlayıcının açık kaynak istemci/örnek kodları incelenerek yazılmıştır. Üretime almadan önce test hesabınızla mutlaka doğrulama yapın:
+Üretime almadan önce test hesabınızla mutlaka doğrulama yapın:
 
-- **Netgsm**: İncelenen kaynak (`Resul-9/Netgsm-Api`, `PHP` dalı) yalnızca Netgsm'in eski/legacy SOAP arayüzünü örnekliyor ve yanıt ayrıştırması içermiyor. Bu paket bunun yerine Netgsm'in güncel, dokümante REST/XML gönderim uç noktasını (`sms/send/xml`) kullanır.
-- **VatanSMS.net**: İncelenen istemci (`vayztr/vatansmsnet-php`) API yanıtını olduğu gibi diziye çevirip döndürüyor, başarı/hata alanlarının kesin şemasını belgelemiyor. Bu paket yaygın `{status, message, data}` yanıt zarfını varsayar; hesabınızda farklı bir yanıt şekli görürseniz `SmsResponse::$raw` üzerinden kendi ayrıştırmanızı yapabilirsiniz.
+- **Netgsm**: Sağlayıcının [resmi API dokümanındaki](https://www.netgsm.com.tr/dokuman/#sms-gonderimi) REST v2 uç noktası (`POST /sms/rest/v2/send`) kullanılır. Kimlik doğrulama HTTP Basic Auth iledir (`usercode`/`password`), gövde JSON'dur. Başarı kodları `00`/`01`/`02`, hata kodları (`20`, `30`, `40`, `50`, `51`, `70`, `80`, `85`) dokümandan birebir alınmıştır.
+- **VatanSMS.net**: Sağlayıcının resmi panel API'si (`panel.vatansms.com/panel/smsgonder1Npost.php`) kullanılır — tek mesajı XML içinde `data` form alanıyla POST eder. Başarılı gönderimde yanıt gövdesi, raporlama için kullanılan sayısal SMS ID'sidir; sayısal olmayan bir yanıt hata olarak değerlendirilir.
 - **Verimor**: Gönderim yapılacak sunucu IP adresinin Verimor panelinde (`oim.verimor.com.tr`) tanımlı olması gerekir, aksi halde `401` hatası alırsınız.
-- **Mutlucell, İletimerkezi**: İncelenen resmi/MIT lisanslı istemcilerdeki (`Ardakilic/laravel-mutlucell-sms`, `iletimerkezi/iletimerkezi-php`) istek/yanıt formatı birebir uygulanmıştır.
+- **Mutlucell, İletimerkezi**: Sağlayıcıların dokümante edilmiş XML/JSON istek-yanıt formatları birebir uygulanmıştır.
 
 ## Testler
 
@@ -140,15 +144,14 @@ vendor/bin/phpunit
 
 Testler, her sürücü için gerçek ağ isteği atmadan Guzzle `MockHandler` ile sahte HTTP yanıtları kullanır.
 
-## Referans alınan projeler
+## Kaynaklar
 
-Bu paket aşağıdaki açık kaynak projelerin API davranışları incelenerek, sıfırdan ve tek bir ortak arayüze uyacak şekilde yeniden yazılmıştır:
+Bu paket, sıfırdan ve tek bir ortak arayüze uyacak şekilde aşağıdaki kaynaklar temel alınarak yazılmıştır:
 
-- [Ardakilic/laravel-mutlucell-sms](https://github.com/Ardakilic/laravel-mutlucell-sms) (MIT)
-- [verimor/SMS-API](https://github.com/verimor/SMS-API)
-- [Resul-9/Netgsm-Api](https://github.com/Resul-9/Netgsm-Api/tree/PHP)
-- [vayztr/vatansmsnet-php](https://github.com/vayztr/vatansmsnet-php) (MIT)
-- [iletimerkezi/iletimerkezi-php](https://github.com/iletimerkezi/iletimerkezi-php) (MIT)
+- [Verimor SMS-API](https://github.com/verimor/SMS-API) — sağlayıcının resmi örnek kodları
+- [Netgsm API dokümanı](https://www.netgsm.com.tr/dokuman/#sms-gonderimi) — resmi REST v2 dokümantasyonu
+- VatanSMS.net — sağlayıcının resmi panel API'si
+- Mutlucell, İletimerkezi — sağlayıcıların dokümante edilmiş istek/yanıt formatları
 
 ## Katkı
 

@@ -7,18 +7,14 @@ use Canopus\SmsApi\Exceptions\SmsException;
 use Canopus\SmsApi\SmsResponse;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
+use SimpleXMLElement;
 
 /**
- * VatanSMS.net sürücüsü.
+ * VatanSMS (panel.vatansms.com) sürücüsü.
  *
- * Not: Kaynak alınan https://github.com/vayztr/vatansmsnet-php istemcisi,
- * API'nin JSON yanıtını olduğu gibi diziye çevirip döndürüyor; başarı/hata
- * alanlarının kesin adlarını belgelemiyor. Bu sürücü VatanSMS'in yaygın
- * {status, message, data} zarfını varsayarak ayrıştırma yapar. Hesabınızda
- * farklı bir yanıt şekli görürseniz raw dizisi üzerinden kendi
- * ayrıştırmanızı yapabilirsiniz (SmsResponse::$raw).
- *
- * @see https://github.com/vayztr/vatansmsnet-php
+ * Resmi "1 mesaj -> N numara" XML/POST uç noktasını (smsgonder1Npost.php)
+ * kullanır. Başarılı gönderimde yanıt gövdesi, raporlama için kullanılan
+ * sayısal SMS ID'sidir.
  */
 class VatanSmsDriver implements SmsDriver
 {
@@ -30,51 +26,43 @@ class VatanSmsDriver implements SmsDriver
 
     public function send(string|array $to, string $message, array $options = []): SmsResponse
     {
-        $payload = [
-            'api_id' => $this->config['api_id'] ?? '',
-            'api_key' => $this->config['api_key'] ?? '',
-            'phones' => array_values(array_map('strval', (array) $to)),
-            'message' => $message,
-            'sender' => $options['sender'] ?? $this->config['sender'] ?? '',
-            'message_type' => $options['messageType'] ?? $this->config['message_type'] ?? 'normal',
-            'message_content_type' => $options['messageContentType'] ?? $this->config['message_content_type'] ?? 'bilgi',
-        ];
+        $numbers = implode(',', array_map('strval', (array) $to));
+
+        $xml = new SimpleXMLElement('<sms/>');
+        $xml->addChild('kno', (string) ($this->config['account_no'] ?? ''));
+        $xml->addChild('kulad', (string) ($this->config['username'] ?? ''));
+        $xml->addChild('sifre', (string) ($this->config['password'] ?? ''));
+        $xml->addChild('gonderen', (string) ($options['sender'] ?? $this->config['sender'] ?? ''));
+        $this->appendCData($xml->addChild('mesaj'), $message);
+        $xml->addChild('numaralar', $numbers);
+        $xml->addChild('tur', (string) ($options['messageType'] ?? $this->config['message_type'] ?? 'Turkce'));
 
         if (! empty($options['scheduledAt'])) {
-            $payload['send_time'] = $options['scheduledAt'];
+            $xml->addChild('zaman', (string) $options['scheduledAt']);
         }
 
         try {
-            $response = $this->client->post('1toN', [
-                'json' => $payload,
+            $response = $this->client->post('smsgonder1Npost.php', [
+                'form_params' => ['data' => $xml->asXML()],
                 'http_errors' => false,
             ]);
         } catch (GuzzleException $e) {
             throw new SmsException('VatanSMS isteği başarısız oldu: '.$e->getMessage(), previous: $e);
         }
 
-        $httpStatus = $response->getStatusCode();
-        $rawBody = (string) $response->getBody();
-        $data = json_decode($rawBody, true);
+        $raw = trim((string) $response->getBody());
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return SmsResponse::failure('VatanSMS yanıtı çözümlenemedi.', ['raw' => $rawBody]);
+        if ($response->getStatusCode() === 200 && preg_match('/^\d+$/', $raw)) {
+            return SmsResponse::success($raw, ['raw' => $raw]);
         }
 
-        $data ??= [];
-        $status = $data['status'] ?? null;
-        $successful = $httpStatus === 200
-            && $status !== false
-            && ! in_array($status, [0, '0', 'error', 'fail', 'failed'], true);
+        return SmsResponse::failure($raw !== '' ? $raw : 'VatanSMS gönderim hatası.', ['raw' => $raw]);
+    }
 
-        if (! $successful) {
-            $errorMessage = $data['message'] ?? "VatanSMS gönderim hatası (HTTP {$httpStatus}).";
-
-            return SmsResponse::failure($errorMessage, $data);
-        }
-
-        $messageId = $data['data']['id'] ?? $data['id'] ?? null;
-
-        return SmsResponse::success($messageId !== null ? (string) $messageId : null, $data);
+    private function appendCData(SimpleXMLElement $node, string $value): void
+    {
+        $domNode = dom_import_simplexml($node);
+        $domDocument = $domNode->ownerDocument;
+        $domNode->appendChild($domDocument->createCDATASection($value));
     }
 }

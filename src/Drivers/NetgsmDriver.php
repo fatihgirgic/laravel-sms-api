@@ -7,30 +7,25 @@ use Canopus\SmsApi\Exceptions\SmsException;
 use Canopus\SmsApi\SmsResponse;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
-use SimpleXMLElement;
 
 /**
- * Netgsm SMS sürücüsü.
+ * Netgsm SMS sürücüsü — resmi REST v2 JSON API'sini kullanır.
  *
- * Not: İncelenen https://github.com/Resul-9/Netgsm-Api (PHP dalı) yalnızca
- * Netgsm'in eski/legacy SOAP arayüzünü örnekliyor ve herhangi bir yanıt
- * ayrıştırması içermiyor. Bu sürücü onun yerine Netgsm'in güncel, kamuya
- * açık dokümante edilmiş REST/XML gönderim uç noktasını (sms/send/xml)
- * kullanır. Hesabınızın API dokümantasyonuyla karşılaştırmanız önerilir.
- *
- * @see https://www.netgsm.com.tr/dokuman/
+ * @see https://www.netgsm.com.tr/dokuman/#sms-gonderimi
  */
 class NetgsmDriver implements SmsDriver
 {
+    private const SUCCESS_CODES = ['00', '01', '02'];
+
     private const ERROR_CODES = [
-        '20' => 'Mesaj metni veya karakter seti hatalı.',
-        '30' => 'Geçersiz kullanıcı adı, şifre ya da API erişim izni yok.',
-        '40' => 'Gönderici adı (mesaj başlığı) sisteme tanımlı değil.',
-        '50' => 'Yetersiz kredi.',
-        '51' => 'Gönderim bulunamadı.',
-        '70' => 'Hatalı ya da eksik parametre.',
-        '80' => 'Gönderim tarihi formatı hatalı.',
-        '85' => 'Mükerrer gönderim.',
+        '20' => 'Mesaj metninde sorun var ya da standart maksimum karakter sayısı aşıldı.',
+        '30' => 'Geçersiz kullanıcı adı/şifre, API erişim izni yok ya da IP sınırlamasına takıldı.',
+        '40' => 'Mesaj başlığı (gönderici adı) sistemde tanımlı değil.',
+        '50' => 'Hesabınız İYS kontrollü gönderim yapamıyor.',
+        '51' => 'Aboneliğinize tanımlı İYS marka bilgisi bulunamadı.',
+        '70' => 'Hatalı sorgu: parametrelerden biri hatalı ya da zorunlu bir alan eksik.',
+        '80' => 'Gönderim sınırı aşıldı.',
+        '85' => 'Mükerrer gönderim sınırı aşıldı (aynı numaraya 1 dakikada 20\'den fazla görev).',
     ];
 
     public function __construct(
@@ -43,51 +38,52 @@ class NetgsmDriver implements SmsDriver
     {
         $numbers = array_map('strval', (array) $to);
 
-        $xml = new SimpleXMLElement('<mainbody/>');
-        $header = $xml->addChild('header');
-        $company = $header->addChild('company', 'Netgsm');
-        $company->addAttribute('dil', 'TR');
-        $header->addChild('usercode', (string) ($this->config['usercode'] ?? ''));
-        $header->addChild('password', (string) ($this->config['password'] ?? ''));
-        $header->addChild('type', '1:n');
-        $header->addChild('msgheader', (string) ($options['sender'] ?? $this->config['msgheader'] ?? ''));
+        $payload = [
+            'msgheader' => (string) ($options['sender'] ?? $this->config['msgheader'] ?? ''),
+            'messages' => array_map(
+                static fn (string $no): array => ['msg' => $message, 'no' => $no],
+                $numbers,
+            ),
+            'encoding' => (string) ($options['encoding'] ?? $this->config['encoding'] ?? 'TR'),
+        ];
 
-        if (! empty($options['scheduledAt'])) {
-            $header->addChild('startdate', (string) $options['scheduledAt']);
+        $iysfilter = $options['iysfilter'] ?? $this->config['iysfilter'] ?? null;
+
+        if ($iysfilter !== null && $iysfilter !== '') {
+            $payload['iysfilter'] = (string) $iysfilter;
         }
 
-        $body = $xml->addChild('body');
-        $this->appendCData($body->addChild('msg'), $message);
+        if (! empty($options['scheduledAt'])) {
+            $payload['startdate'] = (string) $options['scheduledAt'];
+        }
 
-        foreach ($numbers as $number) {
-            $body->addChild('no', $number);
+        if (! empty($options['scheduledUntil'])) {
+            $payload['stopdate'] = (string) $options['scheduledUntil'];
+        }
+
+        if (! empty($this->config['appname'])) {
+            $payload['appname'] = (string) $this->config['appname'];
         }
 
         try {
-            $response = $this->client->post('sms/send/xml', [
-                'headers' => ['Content-Type' => 'text/xml; charset=UTF-8'],
-                'body' => $xml->asXML(),
+            $response = $this->client->post('sms/rest/v2/send', [
+                'auth' => [(string) ($this->config['usercode'] ?? ''), (string) ($this->config['password'] ?? '')],
+                'json' => $payload,
+                'http_errors' => false,
             ]);
         } catch (GuzzleException $e) {
             throw new SmsException('Netgsm isteği başarısız oldu: '.$e->getMessage(), previous: $e);
         }
 
-        $raw = trim((string) $response->getBody());
-        [$code, $jobId] = array_pad(explode(' ', $raw, 2), 2, null);
+        $data = json_decode((string) $response->getBody(), true) ?? [];
+        $code = (string) ($data['code'] ?? '');
 
-        if (in_array($code, ['00', '01', '02'], true)) {
-            return SmsResponse::success($jobId, ['raw' => $raw, 'code' => $code]);
+        if (in_array($code, self::SUCCESS_CODES, true)) {
+            return SmsResponse::success($data['jobid'] ?? null, $data);
         }
 
-        $reason = self::ERROR_CODES[$code] ?? 'Bilinmeyen hata.';
+        $reason = $data['description'] ?? (self::ERROR_CODES[$code] ?? 'Bilinmeyen hata.');
 
-        return SmsResponse::failure("Netgsm gönderim hatası ({$code}): {$reason}", ['raw' => $raw, 'code' => $code]);
-    }
-
-    private function appendCData(SimpleXMLElement $node, string $value): void
-    {
-        $domNode = dom_import_simplexml($node);
-        $domDocument = $domNode->ownerDocument;
-        $domNode->appendChild($domDocument->createCDATASection($value));
+        return SmsResponse::failure("Netgsm gönderim hatası ({$code}): {$reason}", $data);
     }
 }

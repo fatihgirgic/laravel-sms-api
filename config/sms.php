@@ -42,16 +42,23 @@ return [
             'usercode' => env('NETGSM_USERCODE'),
             'password' => env('NETGSM_PASSWORD'),
             'msgheader' => env('NETGSM_MSGHEADER'),
+            // "UTF-8" (Türkçe karaktersiz), "TR" (Türkçe karakter destekli), "UNICODE" (emoji destekli)
+            'encoding' => env('NETGSM_ENCODING', 'TR'),
+            // "0" bilgilendirme, "11" bireysele İYS kontrollü, "12" tacire İYS kontrollü
+            'iysfilter' => env('NETGSM_IYSFILTER'),
+            'appname' => env('NETGSM_APPNAME'),
             'base_uri' => env('NETGSM_BASE_URI', 'https://api.netgsm.com.tr/'),
         ],
 
         'vatansms' => [
-            'api_id' => env('VATANSMS_API_ID'),
-            'api_key' => env('VATANSMS_API_KEY'),
+            // Panel > Hesap bilgilerinizdeki kullanıcı no (kno)
+            'account_no' => env('VATANSMS_ACCOUNT_NO'),
+            'username' => env('VATANSMS_USERNAME'),
+            'password' => env('VATANSMS_PASSWORD'),
             'sender' => env('VATANSMS_SENDER'),
-            'message_type' => env('VATANSMS_MESSAGE_TYPE', 'normal'),
-            'message_content_type' => env('VATANSMS_MESSAGE_CONTENT_TYPE', 'bilgi'),
-            'base_uri' => env('VATANSMS_BASE_URI', 'https://api.toplusmspaketleri.com/api/v1/'),
+            // "Turkce", "Normal" (İngilizce) vb. - panelinizdeki tanıma göre
+            'message_type' => env('VATANSMS_MESSAGE_TYPE', 'Turkce'),
+            'base_uri' => env('VATANSMS_BASE_URI', 'https://panel.vatansms.com/panel/'),
         ],
 
         'iletimerkezi' => [
