@@ -14,7 +14,7 @@ class VatanSmsDriverTest extends TestCase
     public function test_it_sends_sms_successfully(): void
     {
         $mock = new MockHandler([
-            new Response(200, [], '4815162'),
+            new Response(200, [], '1:589052:Gonderildi:2:0,010'),
         ]);
         $client = new Client(['handler' => HandlerStack::create($mock)]);
 
@@ -25,16 +25,16 @@ class VatanSmsDriverTest extends TestCase
             'sender' => 'TEST',
         ], $client);
 
-        $response = $driver->send(['905551112233'], 'Merhaba dünya');
+        $response = $driver->send(['5551112233', '5551112244'], 'Merhaba dünya');
 
         $this->assertTrue($response->successful());
-        $this->assertSame('4815162', $response->messageId);
+        $this->assertSame('589052', $response->messageId);
     }
 
-    public function test_it_reports_failure_on_non_numeric_response(): void
+    public function test_it_reports_failure_from_error_line(): void
     {
         $mock = new MockHandler([
-            new Response(200, [], 'HATA: Yetersiz bakiye'),
+            new Response(200, [], '2:Yeterli Bakiyeniz Yok'),
         ]);
         $client = new Client(['handler' => HandlerStack::create($mock)]);
 
@@ -44,9 +44,9 @@ class VatanSmsDriverTest extends TestCase
             'password' => 'pass',
         ], $client);
 
-        $response = $driver->send('905551112233', 'Merhaba');
+        $response = $driver->send('5551112233', 'Merhaba');
 
         $this->assertTrue($response->failed());
-        $this->assertSame('HATA: Yetersiz bakiye', $response->errorMessage);
+        $this->assertSame('Yeterli Bakiyeniz Yok', $response->errorMessage);
     }
 }

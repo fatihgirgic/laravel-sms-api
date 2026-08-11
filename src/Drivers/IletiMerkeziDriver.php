@@ -9,9 +9,9 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 
 /**
- * İletimerkezi sürücüsü.
+ * İletimerkezi sürücüsü — resmi JSON POST API'sini kullanır.
  *
- * @see https://github.com/iletimerkezi/iletimerkezi-php
+ * @see https://toplusmsapi.com/sms/gonder/json
  */
 class IletiMerkeziDriver implements SmsDriver
 {
@@ -27,8 +27,8 @@ class IletiMerkeziDriver implements SmsDriver
 
         $order = [
             'sender' => $options['sender'] ?? $this->config['sender'] ?? '',
-            'sendDateTime' => $options['scheduledAt'] ?? '',
-            'iys' => ($options['iys'] ?? $this->config['iys'] ?? true) ? 1 : 0,
+            'sendDateTime' => ! empty($options['scheduledAt']) ? [(string) $options['scheduledAt']] : [],
+            'iys' => ($options['iys'] ?? $this->config['iys'] ?? true) ? '1' : '0',
             'iysList' => $options['iysList'] ?? $this->config['iys_list'] ?? 'BIREYSEL',
             'message' => [
                 'text' => $message,

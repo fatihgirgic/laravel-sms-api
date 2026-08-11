@@ -9,9 +9,10 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 
 /**
- * Verimor SMS API sürücüsü.
+ * Verimor SMS API sürücüsü — resmi "Birden Çok Numara Bir Mesaj
+ * Gönderebilme" (POST /v2/send, JSON) uç noktasını kullanır.
  *
- * @see https://github.com/verimor/SMS-API
+ * @see https://developer.verimor.com.tr/smsapi
  */
 class VerimorDriver implements SmsDriver
 {
@@ -28,35 +29,35 @@ class VerimorDriver implements SmsDriver
         $payload = [
             'username' => $this->config['username'] ?? '',
             'password' => $this->config['password'] ?? '',
+            'dest' => $dest,
+            'msg' => $message,
             'source_addr' => $options['sender'] ?? $this->config['source_addr'] ?? '',
-            'messages' => [
-                [
-                    'msg' => $message,
-                    'dest' => $dest,
-                ],
-            ],
         ];
-
-        if (! empty($options['customId'])) {
-            $payload['custom_id'] = $options['customId'];
-        }
 
         if (! empty($options['validFor'])) {
             $payload['valid_for'] = $options['validFor'];
+        }
+
+        $datacoding = $options['datacoding'] ?? $this->config['datacoding'] ?? null;
+
+        if ($datacoding !== null) {
+            $payload['datacoding'] = (int) $datacoding;
+        }
+
+        if (array_key_exists('isCommercial', $options)) {
+            $payload['is_commercial'] = (bool) $options['isCommercial'];
+        }
+
+        if (! empty($options['iysRecipientType'])) {
+            $payload['iys_recipient_type'] = $options['iysRecipientType'];
         }
 
         if (! empty($options['scheduledAt'])) {
             $payload['send_at'] = $options['scheduledAt'];
         }
 
-        $datacoding = $options['datacoding'] ?? $this->config['datacoding'] ?? null;
-
-        if ($datacoding !== null) {
-            $payload['datacoding'] = $datacoding;
-        }
-
         try {
-            $response = $this->client->post('send.json', [
+            $response = $this->client->post('send', [
                 'json' => $payload,
                 'http_errors' => false,
             ]);

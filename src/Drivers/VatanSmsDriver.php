@@ -13,8 +13,11 @@ use SimpleXMLElement;
  * VatanSMS (panel.vatansms.com) sürücüsü.
  *
  * Resmi "1 mesaj -> N numara" XML/POST uç noktasını (smsgonder1Npost.php)
- * kullanır. Başarılı gönderimde yanıt gövdesi, raporlama için kullanılan
- * sayısal SMS ID'sidir.
+ * kullanır. Yanıt "durum:özelkod:açıklama:kişi_sayısı:tutar" biçiminde tek
+ * satırdır; "1:" ile başlayan yanıt başarı (özel kod = SMS ID), "2:" ile
+ * başlayan yanıt hatadır.
+ *
+ * @see https://vatansms.com/toplu-sms/sms-api/
  */
 class VatanSmsDriver implements SmsDriver
 {
@@ -41,6 +44,10 @@ class VatanSmsDriver implements SmsDriver
             $xml->addChild('zaman', (string) $options['scheduledAt']);
         }
 
+        if (! empty($options['expiresAt'])) {
+            $xml->addChild('zamanasimi', (string) $options['expiresAt']);
+        }
+
         try {
             $response = $this->client->post('smsgonder1Npost.php', [
                 'form_params' => ['data' => $xml->asXML()],
@@ -51,12 +58,17 @@ class VatanSmsDriver implements SmsDriver
         }
 
         $raw = trim((string) $response->getBody());
+        $parts = explode(':', $raw);
 
-        if ($response->getStatusCode() === 200 && preg_match('/^\d+$/', $raw)) {
-            return SmsResponse::success($raw, ['raw' => $raw]);
+        if (($parts[0] ?? null) === '1') {
+            $messageId = $parts[1] ?? null;
+
+            return SmsResponse::success($messageId !== '' ? $messageId : null, ['raw' => $raw]);
         }
 
-        return SmsResponse::failure($raw !== '' ? $raw : 'VatanSMS gönderim hatası.', ['raw' => $raw]);
+        $reason = count($parts) > 1 ? implode(':', array_slice($parts, 1)) : $raw;
+
+        return SmsResponse::failure($reason !== '' ? $reason : 'VatanSMS gönderim hatası.', ['raw' => $raw]);
     }
 
     private function appendCData(SimpleXMLElement $node, string $value): void

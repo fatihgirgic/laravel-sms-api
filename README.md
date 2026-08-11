@@ -126,14 +126,19 @@ Sms::send('905551112233', 'Merhaba!', [
 ]);
 ```
 
+> `scheduledAt` formatı sağlayıcıya göre değişir — aşağıdaki tabloya bakın. Yanlış formatta gönderirseniz sağlayıcı hata döner.
+
 ## Sağlayıcılara özel notlar
 
-Üretime almadan önce test hesabınızla mutlaka doğrulama yapın:
+Bu paket, her sağlayıcının resmi API dokümanları incelenerek yazılmış ve doğrulanmıştır. Üretime almadan önce yine de test hesabınızla doğrulama yapmanızı öneririz.
 
-- **Netgsm**: Sağlayıcının [resmi API dokümanındaki](https://www.netgsm.com.tr/dokuman/#sms-gonderimi) REST v2 uç noktası (`POST /sms/rest/v2/send`) kullanılır. Kimlik doğrulama HTTP Basic Auth iledir (`usercode`/`password`), gövde JSON'dur. Başarı kodları `00`/`01`/`02`, hata kodları (`20`, `30`, `40`, `50`, `51`, `70`, `80`, `85`) dokümandan birebir alınmıştır.
-- **VatanSMS.net**: Sağlayıcının resmi panel API'si (`panel.vatansms.com/panel/smsgonder1Npost.php`) kullanılır — tek mesajı XML içinde `data` form alanıyla POST eder. Başarılı gönderimde yanıt gövdesi, raporlama için kullanılan sayısal SMS ID'sidir; sayısal olmayan bir yanıt hata olarak değerlendirilir.
-- **Verimor**: Gönderim yapılacak sunucu IP adresinin Verimor panelinde (`oim.verimor.com.tr`) tanımlı olması gerekir, aksi halde `401` hatası alırsınız.
-- **Mutlucell, İletimerkezi**: Sağlayıcıların dokümante edilmiş XML/JSON istek-yanıt formatları birebir uygulanmıştır.
+| Sağlayıcı | Uç nokta | `scheduledAt` formatı | Not |
+|---|---|---|---|
+| Mutlucell | `POST smsgw-ws/sndblkex` (XML) | serbest metin (`tarih` XML özniteliği) | — |
+| Verimor | `POST /v2/send` (JSON) | ISO 8601 veya `YYYY-MM-DD HH:mm:ss` | Gönderim yapılacak sunucu IP'si Verimor panelinde (`oim.verimor.com.tr`) tanımlı olmalı, aksi halde `401` alırsınız. |
+| Netgsm | `POST /sms/rest/v2/send` (JSON, HTTP Basic Auth) | `ddMMyyyyHHmm` | Başarı kodları `00`/`01`/`02`; hata kodları (`20`,`30`,`40`,`50`,`51`,`70`,`80`,`85`) [resmi dokümandan](https://www.netgsm.com.tr/dokuman/#sms-gonderimi) birebir alınmıştır. |
+| VatanSMS.net | `POST panel/smsgonder1Npost.php` (XML) | `yyyy-MM-dd HH:mm:ss` | Numaralar 10 haneli, ülke kodsuz yazılır (`5xxxxxxxxx`). Yanıt `1:özelkod:açıklama:...` (başarı) veya `2:açıklama` (hata) biçiminde tek satırdır. |
+| İletimerkezi | `POST /v1/send-sms/json` | `DD/MM/YYYY HH:mm` | `sendDateTime` alanı API'de dizi bekler (`["12/08/2026 10:00"]`); bu paket `scheduledAt` değerinizi otomatik olarak diziye sarar. |
 
 ## Testler
 
@@ -146,12 +151,13 @@ Testler, her sürücü için gerçek ağ isteği atmadan Guzzle `MockHandler` il
 
 ## Kaynaklar
 
-Bu paket, sıfırdan ve tek bir ortak arayüze uyacak şekilde aşağıdaki kaynaklar temel alınarak yazılmıştır:
+Bu paket, sıfırdan ve tek bir ortak arayüze uyacak şekilde, her sağlayıcının resmi API dokümanı temel alınarak yazılmış ve bu dokümanlarla karşılaştırılarak doğrulanmıştır:
 
-- [Verimor SMS-API](https://github.com/verimor/SMS-API) — sağlayıcının resmi örnek kodları
-- [Netgsm API dokümanı](https://www.netgsm.com.tr/dokuman/#sms-gonderimi) — resmi REST v2 dokümantasyonu
-- VatanSMS.net — sağlayıcının resmi panel API'si
-- Mutlucell, İletimerkezi — sağlayıcıların dokümante edilmiş istek/yanıt formatları
+- [Verimor SMS API](https://developer.verimor.com.tr/smsapi) — resmi API referansı
+- [Netgsm API dokümanı](https://www.netgsm.com.tr/dokuman/#api-dokumani) — resmi REST v2 dokümantasyonu
+- [VatanSMS SMS API](https://vatansms.com/toplu-sms/sms-api/) — resmi API referansı
+- [İletimerkezi SMS API](https://toplusmsapi.com/sms/gonder/json) — resmi API referansı
+- Mutlucell — sağlayıcının dokümante edilmiş XML istek/yanıt formatı
 
 ## Katkı
 
